@@ -22,6 +22,7 @@
   const hash = async value => encodeHex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)));
   const normalizedStudentId = value => value.trim().toLowerCase();
   const studentEmail = value => `student-${normalizedStudentId(value)}@students.studysaathi.invalid`;
+  const teacherEmail = value => `teacher-${value.trim().toLowerCase()}@teachers.studysaathi.invalid`;
   const makeActivationCode = () => encodeHex(crypto.getRandomValues(new Uint8Array(32)));
 
   window.studySaathiCloud = {
@@ -30,14 +31,24 @@
     makeActivationCode,
     studentEmail,
     normalizedStudentId,
-    async signInTeacher(email, password) {
-      return client.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
+    async signInTeacher(username, password) {
+      const normalizedUsername = username.trim().toLowerCase();
+      const email = normalizedUsername.includes("@") ? normalizedUsername : teacherEmail(normalizedUsername);
+      return client.auth.signInWithPassword({ email, password });
     },
-    async signUpTeacher(email, password, displayName) {
-      return client.auth.signUp({
-        email: email.trim().toLowerCase(),
+    async signUpTeacher(username, password, displayName) {
+      const { data: created, error: createError } = await client.functions.invoke("create-teacher", {
+        body: {
+          username: username.trim().toLowerCase(),
+          password,
+          displayName: displayName.trim(),
+        },
+      });
+      if (createError) return { data: null, error: createError };
+      if (!created?.ok) return { data: null, error: new Error(created?.error || "Could not create the teacher account.") };
+      return client.auth.signInWithPassword({
+        email: teacherEmail(username),
         password,
-        options: { data: { role: "teacher", display_name: displayName.trim() } },
       });
     },
     async signInStudent(studentId, password) {
