@@ -483,8 +483,12 @@
       showMessage("Enter your teacher username and password.", true);
       return;
     }
-    if (createMode && (!/^[a-z0-9_]{3,20}$/i.test(username) || name.length < 2 || password.length < 8)) {
-      showMessage("Choose a username of 3 to 20 letters, numbers, or underscores, enter your display name, and use a password with at least 8 characters.", true);
+    if (!/^[a-z0-9_]{3,20}$/i.test(username)) {
+      showMessage("Enter a teacher username of 3 to 20 letters, numbers, or underscores.", true);
+      return;
+    }
+    if (createMode && (name.length < 2 || password.length < 8)) {
+      showMessage("Enter your display name and use a password with at least 8 characters.", true);
       return;
     }
     target.disabled = true;

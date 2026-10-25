@@ -85,9 +85,8 @@ Important limits
   teachers sign in with their username and password, not an email address.
 - The teacher profile trigger trusts only Supabase-managed app metadata, so a
   browser cannot grant itself the teacher role by setting user metadata.
-- Existing teachers may still enter their prior email address in the username
-  field to sign in to an already-confirmed legacy account. New accounts use
-  usernames.
+- Teachers sign in with a 3-to-20-character username containing letters,
+  numbers, or underscores. Email-address sign-in is not supported.
 - Set Supabase Auth's Site URL to the deployed site origin. Email redirects
   are not used for teacher registration or sign-in.
 - Existing browser-only teacher records are copied from the browser that holds
