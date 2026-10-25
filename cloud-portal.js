@@ -7,6 +7,11 @@
   let workspaceSaveQueue = Promise.resolve();
   const saveTimers = new Map();
   const originalSetItem = Storage.prototype.setItem;
+  const writeLocal = (key, value) => {
+    syncingStorage = true;
+    try { localStorage.setItem(key, value);
+    } finally { syncingStorage = false; }
+  };
   const app = () => document.querySelector("#app");
   const session = () => {
     try { return JSON.parse(sessionStorage.getItem("sses") || "null"); }
@@ -75,7 +80,7 @@
           button.disabled = false;
           return;
         }
-        originalSetItem.call(localStorage, `ss-cloud-legacy-migrated-${userId}`, "1");
+        writeLocal(`ss-cloud-legacy-migrated-${userId}`, "1");
         sessionStorage.removeItem(`ss-cloud-legacy-import-pending-${userId}`);
         if (codes.length) {
           const codeMessage = codes.map(item => item.error
@@ -100,13 +105,13 @@
   const preserveLocalData = () => {
     const previous = localStorage.getItem("ssauth");
     if (previous && !localStorage.getItem("ssauth_legacy_backup")) {
-      originalSetItem.call(localStorage, "ssauth_legacy_backup", previous);
+      writeLocal("ssauth_legacy_backup", previous);
     }
     for (const key of Object.keys(localStorage)) {
       if (!key.startsWith("ss_") || key.endsWith("_legacy_backup")) continue;
       const backupKey = `${key}_legacy_backup`;
       if (!localStorage.getItem(backupKey)) {
-        originalSetItem.call(localStorage, backupKey, localStorage.getItem(key));
+        writeLocal( backupKey, localStorage.getItem(key));
       }
     }
   };
@@ -186,7 +191,7 @@
   };
   Storage.prototype.setItem = function(key, value) {
     originalSetItem.call(this, key, value);
-    if (this === localStorage) queueStorageSave(String(key));
+    if (this === localStorage && !syncingStorage) queueStorageSave(String(key));
   };
 
   const setCloudCache = (profile, workspace, students = []) => {
@@ -215,11 +220,11 @@
     preserveLocalData();
     syncingStorage = true;
     try {
-      originalSetItem.call(localStorage, "ssauth", JSON.stringify(authData));
+      writeLocal( "ssauth", JSON.stringify(authData));
       for (const student of students) {
-        originalSetItem.call(localStorage, `ss_${student.student_id}`, JSON.stringify(student.student_data || {}));
+        writeLocal( `ss_${student.student_id}`, JSON.stringify(student.student_data || {}));
       }
-      if (studentId) originalSetItem.call(localStorage, `ss_${studentId}`, JSON.stringify(profile.student_data || {}));
+      if (studentId) writeLocal( `ss_${studentId}`, JSON.stringify(profile.student_data || {}));
     } finally {
       syncingStorage = false;
     }
@@ -292,7 +297,7 @@
           if (codes === null) {
             legacyImportMessage = "You are signed in. To import older records from this device, enter the old device password below. This is separate from your teacher sign-in password; your saved records will remain untouched.";
           } else {
-            originalSetItem.call(localStorage, migrationKey, "1");
+            writeLocal(migrationKey, "1");
             legacyDataImported = true;
             if (codes.length) {
               const message = codes.map(item => item.error
@@ -329,8 +334,8 @@
       if (legacyData && localStorage.getItem(importKey) !== "1") {
         const merged = mergeStudentData(profile.student_data || {}, legacyData);
         await cloud.saveStudentData(profile.student_id, merged, "student");
-        originalSetItem.call(localStorage, `ss_${profile.student_id}`, JSON.stringify(merged));
-        originalSetItem.call(localStorage, importKey, "1");
+        writeLocal( `ss_${profile.student_id}`, JSON.stringify(merged));
+        writeLocal(importKey, "1");
       }
       if (info.studentId !== profile.student_id) throw new Error("The student profile could not be verified.");
     }
@@ -540,7 +545,7 @@
       await cloud.createStudentInvite(id, name, activationCode, new Date(Date.now() + 7 * 86400000).toISOString());
       data.s = [...(data.s || []), { id, n: name, t: session()?.n }];
       preserveLocalData();
-      originalSetItem.call(localStorage, "ssauth", JSON.stringify(data));
+      writeLocal( "ssauth", JSON.stringify(data));
       queueStorageSave("ssauth");
       window.alert(`Student assigned. Give this one-time activation code to ${name}. It expires in 7 days:\n\n${activationCode}`);
       const row = target.closest(".row");
@@ -566,9 +571,8 @@
       event.preventDefault();
       event.stopImmediatePropagation();
       void (async () => {
-        await flushPendingSaves();
-        const { error } = await cloud.client.auth.signOut();
-        if (error) throw error;
+        try { await flushPendingSaves(); } catch (e) { console.warn("Could not flush pending saves:", e); }
+        try { await cloud.client.auth.signOut(); } catch (e) { console.warn("Supabase signOut error:", e); }
         sessionStorage.removeItem("sses");
         sessionStorage.removeItem("ss-cloud-hydrated-user");
         for (const key of Object.keys(sessionStorage)) {
@@ -608,6 +612,28 @@
       sessionStorage.removeItem("sses");
       displayError(cause.message || "Could not load your shared profile. Sign in again.");
       location.reload();
+    }
+  });
+
+  document.addEventListener("keydown", event => {
+    if (event.key !== "Enter") return;
+    const active = document.activeElement;
+    if (!active || active.tagName === "TEXTAREA") return;
+    if (active.id === "si" || active.id === "student-password") {
+      event.preventDefault();
+      document.querySelector("#sg")?.click();
+    } else if (active.id === "tn" || active.id === "tp" || active.id === "teacher-display-name") {
+      event.preventDefault();
+      document.querySelector("#tg")?.click();
+    } else if (active.id === "activation-id" || active.id === "activation-code" || active.id === "activation-password") {
+      event.preventDefault();
+      document.querySelector("#activate-account")?.click();
+    } else if (active.id === "an" || active.id === "ai") {
+      event.preventDefault();
+      document.querySelector("#aa")?.click();
+    } else if (active.id === "cf" || active.id === "cb") {
+      event.preventDefault();
+      document.querySelector("#ca")?.click();
     }
   });
 

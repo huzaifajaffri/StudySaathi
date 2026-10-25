@@ -13,8 +13,8 @@
   new MutationObserver(records=>records.forEach(record=>{
     record.addedNodes.forEach(node=>{
       if(node.nodeType!==Node.ELEMENT_NODE)return;
-      const table=node.matches('table')?node:node.closest('table')||node.querySelector('table');
-      if(table)labelTable(table);
+      if(node.matches&&node.matches('table'))labelTable(node);
+      if(node.querySelectorAll)node.querySelectorAll('table').forEach(labelTable);
     });
   })).observe(document.body,{childList:true,subtree:true});
 })();

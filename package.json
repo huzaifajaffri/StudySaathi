@@ -1,0 +1,9 @@
+{
+  "name": "studysaathi",
+  "version": "1.0.0",
+  "private": true,
+  "description": "StudySaathi - Exam Practice & Progress Tracking for Pakistani Students",
+  "scripts": {
+    "test": "node test-suite.js"
+  }
+}

@@ -3,7 +3,7 @@
     url: "https://vwvunnqjzckieizwvjsm.supabase.co",
     publishableKey: "sb_publishable_focAf_S2UbFenWpmTunqGg_oLABY5od",
   };
-  const clientFactory = window.supabase?.createClient;
+  const clientFactory = window.supabase?.createClient || window.supabaseClient?.createClient;
   if (!clientFactory) {
     console.error("StudySaathi could not load the Supabase browser client.");
     window.studySaathiCloudError = "The shared database client could not be loaded. Reload the page and try again.";
@@ -20,10 +20,22 @@
   });
   const encodeHex = bytes => [...new Uint8Array(bytes)].map(byte => byte.toString(16).padStart(2, "0")).join("");
   const hash = async value => encodeHex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)));
-  const normalizedStudentId = value => value.trim().toLowerCase();
+  const normalizedStudentId = value => String(value || "").trim().toLowerCase();
   const studentEmail = value => `student-${normalizedStudentId(value)}@students.studysaathi.invalid`;
-  const teacherEmail = value => `teacher-${value.trim().toLowerCase()}@teachers.studysaathi.invalid`;
+  const teacherEmail = value => `teacher-${String(value || "").trim().toLowerCase()}@teachers.studysaathi.invalid`;
   const makeActivationCode = () => encodeHex(crypto.getRandomValues(new Uint8Array(32)));
+
+  const extractFunctionError = async (error, fallback) => {
+    if (!error) return null;
+    let message = error.message || fallback;
+    try {
+      if (error.context && typeof error.context.json === "function") {
+        const body = await error.context.json();
+        if (body && body.error) message = body.error;
+      }
+    } catch {}
+    return new Error(message);
+  };
 
   window.studySaathiCloud = {
     client,
@@ -32,19 +44,21 @@
     studentEmail,
     normalizedStudentId,
     async signInTeacher(username, password) {
-      const normalizedUsername = username.trim().toLowerCase();
+      const normalizedUsername = String(username || "").trim().toLowerCase();
       const email = normalizedUsername.includes("@") ? normalizedUsername : teacherEmail(normalizedUsername);
       return client.auth.signInWithPassword({ email, password });
     },
     async signUpTeacher(username, password, displayName) {
       const { data: created, error: createError } = await client.functions.invoke("create-teacher", {
         body: {
-          username: username.trim().toLowerCase(),
+          username: String(username || "").trim().toLowerCase(),
           password,
-          displayName: displayName.trim(),
+          displayName: String(displayName || "").trim(),
         },
       });
-      if (createError) return { data: null, error: createError };
+      if (createError) {
+        return { data: null, error: await extractFunctionError(createError, "Could not create the teacher account.") };
+      }
       if (!created?.ok) return { data: null, error: new Error(created?.error || "Could not create the teacher account.") };
       return client.auth.signInWithPassword({
         email: teacherEmail(username),
@@ -55,13 +69,20 @@
       return client.auth.signInWithPassword({ email: studentEmail(studentId), password });
     },
     async activateStudent(studentId, activationCode, password) {
-      return client.functions.invoke("activate-student", {
+      const { data, error } = await client.functions.invoke("activate-student", {
         body: {
           studentId: normalizedStudentId(studentId),
-          activationCode: activationCode.trim(),
+          activationCode: String(activationCode || "").trim(),
           password,
         },
       });
+      if (error) {
+        return { data: null, error: await extractFunctionError(error, "Could not activate this student account.") };
+      }
+      if (data && data.ok === false) {
+        return { data: null, error: new Error(data.error || "Could not activate this account.") };
+      }
+      return { data, error: null };
     },
     async loadTeacher(userId) {
       const [profileResult, workspaceResult, studentsResult] = await Promise.all([
@@ -91,7 +112,7 @@
     async createStudentInvite(studentId, displayName, activationCode, expiresAt) {
       const { data, error } = await client.rpc("create_student_invite", {
         p_student_id: normalizedStudentId(studentId),
-        p_display_name: displayName.trim(),
+        p_display_name: String(displayName || "").trim(),
         p_activation_code_hash: await hash(activationCode),
         p_expires_at: expiresAt,
       });
@@ -116,11 +137,12 @@
         if (!data) throw new Error("This student is not assigned to your account.");
         return;
       }
-      const { data: userResult, error: userError } = await client.auth.getUser();
-      if (userError) throw userError;
+      const session = (await client.auth.getSession()).data.session;
+      const userId = session?.user?.id || (await client.auth.getUser()).data.user?.id;
+      if (!userId) throw new Error("You must be signed in to save progress.");
       const { error } = await client.from("student_profiles")
         .update({ student_data: studentData })
-        .eq("auth_user_id", userResult.user.id);
+        .eq("auth_user_id", userId);
       if (error) throw error;
     },
   };

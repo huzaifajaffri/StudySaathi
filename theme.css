@@ -222,7 +222,7 @@ body.side main>.row:has(>[data-tt]) button[aria-current]{color:var(--ac);backgro
   .hero{min-height:unset}
 }
 @media(max-width:560px){
-  body{font-size:15px}
+  body{font-size:calc(15px*var(--fs,1))}
   .w{padding-inline:14px}
   main{padding-block:22px 42px}
   body.side main{padding:20px 14px 42px}
@@ -293,6 +293,7 @@ input,select,textarea{max-width:100%}
     text-align:center;
     line-height:1.2;
     font-size:11px;
+    position:relative;
   }
   body.side nav a svg,body.side nav button svg{flex:none;width:17px;height:17px}
   body.side nav a[aria-current],body.side nav button[aria-current]{box-shadow:inset 0 -2px var(--teal)}
