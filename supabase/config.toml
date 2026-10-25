@@ -1,2 +1,5 @@
 [functions.activate-student]
 verify_jwt = false
+
+[functions.create-teacher]
+verify_jwt = false
