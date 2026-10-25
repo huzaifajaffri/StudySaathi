@@ -1,0 +1,2 @@
+[functions.activate-student]
+verify_jwt = false
