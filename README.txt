@@ -109,17 +109,12 @@ Important limits
   syllabus or past papers.
 
 Deploying updates
-- This is a static HTML/CSS/JavaScript site. It has no build command; Netlify
-  should publish the repository root (`.`). These settings are in the root
-  `netlify.toml`.
-- The existing Netlify site association is stored locally in
-  `.netlify/state.json`. That local state is ignored by Git.
-- To enable push-to-deploy, initialize Git for this folder in VS Code, create
-  a GitHub repository, and publish this folder to it. Then, in Netlify, open
-  the existing site and go to Site configuration > Build & deploy >
-  Continuous deployment. Link the GitHub repository and select the branch
-  used for production. Keep the base directory and build command empty, and
-  set the publish directory to `.`.
-- After the initial link, pushing commits to the production branch triggers
-  automatic Netlify deployments. A normal save in VS Code does not deploy
-  until the changes are committed and pushed.
+- This is a static HTML/CSS/JavaScript site. It has no build command. Vercel is
+  the new production host from the public GitHub repository
+  `huzaifajaffri/StudySaathi`; the existing Netlify site remains live until it
+  is removed from the Netlify dashboard.
+- Vercel uses the repository root (`./`), the Other framework preset, no build
+  command, and `.` as the output directory. The Vercel GitHub app is connected
+  only to this repository.
+- Push commits to the `main` branch to trigger automatic Vercel deployments.
+  Saving files in VS Code alone does not deploy; commit and push the changes.
