@@ -290,7 +290,7 @@
         try {
           const codes = await migrateLegacyTeacherData(teacherName, window.studySaathiPendingPassword || "");
           if (codes === null) {
-            legacyImportMessage = "You are signed in. To import older records from this device, enter the old device password below. This is separate from your email sign-in password; your saved records will remain untouched.";
+            legacyImportMessage = "You are signed in. To import older records from this device, enter the old device password below. This is separate from your teacher sign-in password; your saved records will remain untouched.";
           } else {
             originalSetItem.call(localStorage, migrationKey, "1");
             legacyDataImported = true;
@@ -307,7 +307,7 @@
         }
       }
       if (sessionStorage.getItem(pendingImportKey) === "1") {
-        legacyImportMessage = "You are signed in. To import older records from this device, enter the old device password below. This is separate from your email sign-in password; your saved records will remain untouched.";
+        legacyImportMessage = "You are signed in. To import older records from this device, enter the old device password below. This is separate from your teacher sign-in password; your saved records will remain untouched.";
       }
     } else {
       const loaded = await cloud.loadStudent(user.id);
@@ -409,15 +409,26 @@
       card?.querySelector(".row")?.append(activate);
       activate.onclick = showActivationForm;
     }
-    const teacherName = app()?.querySelector("#tn");
-    if (teacherName && !app().querySelector("#teacher-email")) {
-      const emailLabel = document.createElement("label");
-      emailLabel.innerHTML = "Email<br><input id=\"teacher-email\" type=\"email\" autocomplete=\"email\" required>";
-      teacherName.closest("label")?.after(emailLabel);
+    const teacherUsername = app()?.querySelector("#tn");
+    if (teacherUsername) {
+      teacherUsername.autocapitalize = "none";
+      teacherUsername.autocomplete = "username";
+      teacherUsername.placeholder = "Username";
+      const usernameLabel = teacherUsername.closest("label");
+      if (usernameLabel?.childNodes[0]?.nodeType === Node.TEXT_NODE) {
+        usernameLabel.childNodes[0].textContent = "Teacher username";
+      }
       const guidance = app().querySelector(".teacher-guidance p");
-      if (guidance) guidance.textContent = "Create a teacher account with your email and password. Supabase email confirmation must be turned off for immediate sign-in.";
-      const label = teacherName.closest("label");
-      if (label?.childNodes[0]?.nodeType === Node.TEXT_NODE) label.childNodes[0].textContent = "Teacher name";
+      if (guidance) guidance.textContent = "Sign in with your teacher username and password. Create an account without email or email verification.";
+      const createMode = app()?.querySelector("#tg")?.textContent.toLowerCase().includes("create");
+      let displayNameLabel = app()?.querySelector("#teacher-display-name")?.closest("label");
+      if (createMode && usernameLabel && !displayNameLabel) {
+        displayNameLabel = document.createElement("label");
+        displayNameLabel.innerHTML = "Display name<br><input id=\"teacher-display-name\" autocomplete=\"name\" required>";
+        usernameLabel.after(displayNameLabel);
+      } else if (!createMode) {
+        displayNameLabel?.remove();
+      }
     }
     const teacherPassword = app()?.querySelector("#tp");
     if (teacherPassword) {
@@ -464,39 +475,39 @@
     if (!target) return;
     event.preventDefault();
     event.stopImmediatePropagation();
-    const name = app()?.querySelector("#tn")?.value.trim() || "";
-    const email = app()?.querySelector("#teacher-email")?.value.trim() || "";
+    const username = app()?.querySelector("#tn")?.value.trim() || "";
+    const name = app()?.querySelector("#teacher-display-name")?.value.trim() || "";
     const password = app()?.querySelector("#tp")?.value || "";
     const createMode = target.textContent.toLowerCase().includes("create");
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !password) {
-      showMessage("Enter a valid email address and password.", true);
+    if (!username || !password) {
+      showMessage("Enter your teacher username and password.", true);
       return;
     }
-    if (createMode && (name.length < 2 || password.length < 8)) {
-      showMessage("Enter your name and a password with at least 8 characters.", true);
+    if (createMode && (!/^[a-z0-9_]{3,20}$/i.test(username) || name.length < 2 || password.length < 8)) {
+      showMessage("Choose a username of 3 to 20 letters, numbers, or underscores, enter your display name, and use a password with at least 8 characters.", true);
       return;
     }
     target.disabled = true;
     try {
       if (createMode) {
-        const { data, error } = await cloud.signUpTeacher(email, password, name);
+        const { data, error } = await cloud.signUpTeacher(username, password, name);
         if (error) throw error;
         if (!data.session || !data.user) {
-          showMessage("Supabase is still requiring email confirmation. In your Supabase dashboard, turn off Authentication > Providers > Email > Confirm email. Then confirm this already-created account in Authentication > Users before signing in.", true);
+          showMessage("Your account was created, but sign-in did not complete. Try signing in with your username and password.", true);
           target.disabled = false;
           return;
         }
         window.studySaathiPendingPassword = password;
         await finishLogin(data.user);
       } else {
-        const { data, error } = await cloud.signInTeacher(email, password);
+        const { data, error } = await cloud.signInTeacher(username, password);
         if (error) throw error;
-        if (!data.user) throw new Error("Email or password is incorrect.");
+        if (!data.user) throw new Error("Username or password is incorrect.");
         window.studySaathiPendingPassword = password;
         await finishLogin(data.user);
       }
     } catch (error) {
-      showMessage(error.message || "Could not sign in. Check your email and password.", true);
+      showMessage(error.message || "Could not sign in. Check your username and password.", true);
       target.disabled = false;
     }
   };

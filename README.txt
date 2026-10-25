@@ -8,15 +8,15 @@ The app logic lives in app.js. The Manrope font loads from Google Fonts when
 online; the page works without it.
 
 Roles
-- Teacher: after email confirmation is disabled in Supabase, create an account
-  (name + email + password) and sign in immediately, then assign student IDs, publish
+- Teacher: create an account with a username, display name and password, then
+  sign in immediately without providing an email address, assign student IDs, publish
   multiple-choice quizzes or timed theoretical tests to selected students, post
   materials and assignments, and review each student's answers and the correct
   answers for completed quizzes. A setup notice on teacher sign-in explains that
   student IDs must be created before students can sign in.
-- Teachers sign in with their email and password. Supabase email confirmation
-  must be disabled for immediate account creation. New teacher passwords must
-  be at least 8 characters; teachers migrating an old local account can reuse
+- Teachers sign in with their username and password. New usernames must be
+  3-20 lowercase letters, numbers or underscores; passwords must be at least
+  8 characters. Teachers migrating an old local account can reuse
   its existing password.
 - Teachers assign each student a unique ID and share that student's one-time
   activation code privately. On any device, the student enters the ID and code,
@@ -61,31 +61,37 @@ Important limits
   database; the app does not clear or recreate saved accounts or results. Writes
   are serialized and request strict IndexedDB durability where supported. A
   local copy remains available as a cache/backup.
-- Shared sign-in and cross-device records require the Supabase migration and
-  `activate-student` Edge Function to be deployed to the project configured in
-  `supabase-client.js`. Both are deployed for the configured project, and the
-  static site has been redeployed. The static site does not use Next.js, so
+- Shared sign-in and cross-device records require the Supabase migrations and
+  `activate-student` and `create-teacher` Edge Functions to be deployed to the
+  project configured in `supabase-client.js`. The shared-data migration and
+  student activation function are already deployed; the teacher username
+  migration and account-creation function must also be deployed. The static site
+  does not use Next.js, so
   Next.js server helpers, middleware, `page.tsx`, and `.env.local` are not used.
 - To configure Supabase, run
-  `supabase/migrations/20261025000000_shared_student_access.sql` in the
+  `supabase/migrations/20261025000000_shared_student_access.sql` and
+  `supabase/migrations/20261025010000_teacher_username_auth.sql` in the
   project's SQL Editor, then run
   `npx supabase login` and
-  `npx supabase functions deploy activate-student --project-ref vwvunnqjzckieizwvjsm`.
+  `npx supabase functions deploy activate-student create-teacher --project-ref vwvunnqjzckieizwvjsm`.
   Supabase supplies the server-side `SUPABASE_URL` and
   `SUPABASE_SERVICE_ROLE_KEY` to Edge Functions; if configuring another project
   where the key is not available, add it only through the Supabase dashboard.
   Never put the service-role key in this website or commit it. Redeploy the
   static site after these steps.
-- In the Supabase dashboard, open Authentication > Providers > Email and turn
-  off Confirm email so teacher accounts can sign in immediately without email
-  verification. If a teacher account was created while confirmation was still
-  enabled, confirm that existing account once in Authentication > Users after
-  changing the setting. Teacher email and password remain the sign-in
-  credentials; disabling confirmation does not remove password authentication.
-- Set Supabase Auth's Site URL to the deployed site origin. Redirect URLs are
-  needed only if email-based confirmation or recovery flows are enabled.
+- Teacher accounts are created by the `create-teacher` Edge Function using
+  Supabase's server-side admin API and an internal non-routable email address.
+  The service-role key remains server-side. Email confirmation can stay enabled;
+  teachers sign in with their username and password, not an email address.
+- The teacher profile trigger trusts only Supabase-managed app metadata, so a
+  browser cannot grant itself the teacher role by setting user metadata.
+- Existing teachers may still enter their prior email address in the username
+  field to sign in to an already-confirmed legacy account. New accounts use
+  usernames.
+- Set Supabase Auth's Site URL to the deployed site origin. Email redirects
+  are not used for teacher registration or sign-in.
 - Existing browser-only teacher records are copied from the browser that holds
-  them. Email sign-in is never blocked by local-data migration. If needed, the
+  them. Username sign-in is never blocked by local-data migration. If needed, the
   teacher can enter the old device password separately in the import prompt;
   the source records are retained. The teacher must privately share each
   generated one-time activation code with the corresponding student.
