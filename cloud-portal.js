@@ -483,7 +483,9 @@
       showMessage("Enter your teacher username and password.", true);
       return;
     }
-    if (!/^[a-z0-9_]{3,20}$/i.test(username)) {
+    const validUsername = /^[a-z0-9_]{3,20}$/i.test(username);
+    const legacyEmail = !createMode && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username);
+    if (createMode ? !validUsername : !validUsername && !legacyEmail) {
       showMessage("Enter a teacher username of 3 to 20 letters, numbers, or underscores.", true);
       return;
     }

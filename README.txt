@@ -81,12 +81,14 @@ Important limits
   static site after these steps.
 - Teacher accounts are created by the `create-teacher` Edge Function using
   Supabase's server-side admin API and an internal non-routable email address.
-  The service-role key remains server-side. Email confirmation can stay enabled;
-  teachers sign in with their username and password, not an email address.
+  The service-role key remains server-side. The function confirms its internal
+  account email, so email confirmation is not needed for teacher signup.
 - The teacher profile trigger trusts only Supabase-managed app metadata, so a
   browser cannot grant itself the teacher role by setting user metadata.
-- Teachers sign in with a 3-to-20-character username containing letters,
-  numbers, or underscores. Email-address sign-in is not supported.
+- New teacher accounts use a 3-to-20-character username containing letters,
+  numbers, or underscores. Existing email-based teacher accounts can still sign
+  in by entering their email in the same sign-in field; no email signup option
+  is shown.
 - Set Supabase Auth's Site URL to the deployed site origin. Email redirects
   are not used for teacher registration or sign-in.
 - Existing browser-only teacher records are copied from the browser that holds

@@ -33,7 +33,8 @@
     normalizedStudentId,
     async signInTeacher(username, password) {
       const normalizedUsername = username.trim().toLowerCase();
-      return client.auth.signInWithPassword({ email: teacherEmail(normalizedUsername), password });
+      const email = normalizedUsername.includes("@") ? normalizedUsername : teacherEmail(normalizedUsername);
+      return client.auth.signInWithPassword({ email, password });
     },
     async signUpTeacher(username, password, displayName) {
       const { data: created, error: createError } = await client.functions.invoke("create-teacher", {
